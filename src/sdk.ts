@@ -1,6 +1,7 @@
 import { OrugaConfigError } from './errors'
 import { HttpClient, type HttpMethod } from './http'
 import type { OrugaDebugLogger, OrugaSDKConfig, RequestOptions } from './types/sdk.types'
+import { PdfClient } from './pdf'
 import { VerifactuClient } from './verifactu'
 import { DEFAULT_BASE_URL } from './version'
 
@@ -40,6 +41,9 @@ export class OrugaSDK {
     /** VERI*FACTU API: invoices, records, taxpayers, errors and webhook. */
     readonly verifactu: VerifactuClient
 
+    /** PDF API: invoices from your ERP with ORUGA's template (and VERI*FACTU QR if active). */
+    readonly pdf: PdfClient
+
     private readonly http: HttpClient
 
     constructor(config: OrugaSDKConfig) {
@@ -59,6 +63,7 @@ export class OrugaSDK {
             onError: config.onError,
         })
         this.verifactu = new VerifactuClient(this.http)
+        this.pdf = new PdfClient(this.http)
     }
 
     /** Base URL of the API (without trailing slash). */

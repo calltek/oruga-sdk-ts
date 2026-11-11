@@ -45,7 +45,8 @@ export type VerifactuRecordStatus =
 
 export type VerifactuAeatStatus = 'correcto' | 'aceptado_con_errores' | 'incorrecto'
 
-export type VerifactuInvoiceSource = 'oruga' | 'api'
+/** `pdf`: registered by `sdk.pdf.invoice()`. */
+export type VerifactuInvoiceSource = 'oruga' | 'api' | 'pdf'
 
 /** Tax: 01 IVA, 02 IPSI (Ceuta/Melilla), 03 IGIC (Canarias), 05 Others. */
 export type VerifactuTaxType = '01' | '02' | '03' | '05'

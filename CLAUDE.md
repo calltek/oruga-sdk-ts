@@ -8,8 +8,10 @@
 
 Paquete npm público **`@calltek/oruga-sdk`** (repo `calltek/oruga-sdk-ts`,
 antes `invo-sdk-ts`) para que **ERPs de terceros** (copyexpress, vcs…) usen la
-API de ORUGA (`https://api.oru.ga/v1`, backend `og-backend`). Hoy cubre
-VERI\*FACTU (`/v1/verifactu/*`; ver `og-backend/docs/architecture/verifactu.md`).
+API de ORUGA (`https://api.oru.ga/v1`, backend `og-backend`). Cubre
+VERI\*FACTU (`/v1/verifactu/*`; ver `og-backend/docs/architecture/verifactu.md`)
+y el PDF de facturas de ERPs (`/v1/pdf/invoices`; ver
+`og-backend/docs/architecture/services.md`).
 
 Sustituye a `@calltek/invo-sdk` y **no tiene capa de compatibilidad con INVO**:
 nada de `InvoSDK`, `store()`, DTOs camelCase, `apiToken`, `environment`,
@@ -23,11 +25,11 @@ nada de `InvoSDK`, `store()`, DTOs camelCase, `apiToken`, `environment`,
 | Capa | Elección |
 | --- | --- |
 | Lenguaje | TypeScript, **cero dependencias en runtime** (`fetch` nativo, `node:crypto`) |
-| Build | Rollup (`@rollup/plugin-typescript` + `rollup-plugin-dts`) → `dist/index.js` (ESM) + `dist/index.d.ts`. `node:*` es external |
+| Build | Rollup (`@rollup/plugin-typescript` + `rollup-plugin-dts`) → `dist/index.js` (ESM) + `dist/index.cjs` (CommonJS) + `dist/index.d.ts` / `index.d.cts`. `node:*` es external |
 | Tests | **vitest** con `fetch` simulado (`test/*.test.ts`), sin red |
 | Tipos de la API | **Escritos a mano** desde los DTOs y presenters de og-backend (`src/types/verifactu.types.ts`). El `swagger.json` del backend no estaba al día; si algún día se generan desde el OpenAPI, que sea del tag Verifactu |
 | Package manager | npm (CI, `package-lock.json`). bun sirve en local |
-| Runtime objetivo | Node ≥ 18 (vitest/vite 7 piden ≥ 20.19 para correr los tests; en CI, Node 18 solo compila) |
+| Runtime objetivo | Node ≥ 18; Node 16.14+ pasando `config.fetch` (Las Garmillas corre en Node 16 con CommonJS). vitest/vite 7 piden ≥ 20.19 para correr los tests; en CI, Node 18 solo compila |
 
 ---
 
@@ -37,12 +39,14 @@ nada de `InvoSDK`, `store()`, DTOs camelCase, `apiToken`, `environment`,
 src/
 ├── index.ts        ← superficie pública (export curado)
 ├── sdk.ts          ← OrugaSDK: config (apiKey ogk_ obligatoria), sdk.verifactu, request() genérico
+├── pdf.ts          ← sdk.pdf.invoice(): POST /pdf/invoices → { data, filename, verifactu } (cabeceras X-Verifactu-*)
 ├── verifactu.ts    ← sdk.verifactu.{invoices,records,taxpayers(+representations),errors,webhook}, 1:1 con los controladores
 ├── http.ts         ← cliente HTTP: Bearer ogk_, timeout, Idempotency-Key automática, reintentos, errores tipados
 ├── webhook.ts      ← verifyWebhookSignature / constructWebhookEvent / signWebhookPayload / WEBHOOK_HEADERS (X-Oruga-*)
 ├── errors.ts       ← OrugaError → OrugaConfigError/OrugaValidationError, OrugaApiError (→ Auth/RateLimit), OrugaNetworkError (→ Timeout)
 ├── version.ts      ← SDK_VERSION (= package.json, lo comprueba un test) y DEFAULT_BASE_URL
 └── types/
+    ├── pdf.types.ts       ← tipos de /pdf (snake_case)
     ├── verifactu.types.ts ← tipos de la API de ORUGA (snake_case)
     └── sdk.types.ts       ← OrugaSDKConfig, RequestOptions
 ```
@@ -86,6 +90,8 @@ npm run typecheck   # src + tests
 - `docs/` solo tiene `PUBLISHING.md`; la documentación pública es el README.
 - ESLint y Prettier siguen rotos (config vieja con ESLint 9; `.prettierrc.js`
   con `module.exports` en un paquete ESM). No corren en CI.
+- Cuando cambie `og-backend/src/modules/pdf/dto/pdf-invoice.dto.ts`, hay que
+  actualizar `src/types/pdf.types.ts` a mano.
 - Cuando cambie un DTO del backend (`og-backend/src/modules/verifactu/**/dto`
   o los presenters `presentInvoice`/`presentRecord`), hay que actualizar
   `src/types/verifactu.types.ts` a mano.
