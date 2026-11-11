@@ -1,14 +1,15 @@
 # @calltek/oruga-sdk
 
-Official TypeScript SDK for the **ORUGA API**. Today it covers VERI\*FACTU:
-register invoices with the AEAT, follow their status, get the QR, manage
-taxpayers and verify webhooks.
+Official TypeScript SDK for the **ORUGA API**. It covers VERI\*FACTU
+(register invoices with the AEAT, follow their status, get the QR, manage
+taxpayers and verify webhooks) and PDF invoices rendered by ORUGA for your ERP.
 
 > Replaces `@calltek/invo-sdk`. There is no INVO compatibility layer: see the
 > [migration notes](./CHANGELOG.md#migrating-from-calltekinvo-sdk-0x).
 
-- Zero runtime dependencies, Node ≥ 18 (native `fetch`, `node:crypto`).
-- Typed 1:1 with the API (`sdk.verifactu.*`, snake_case payloads).
+- Zero runtime dependencies, ESM and CommonJS. Node ≥ 18 (native `fetch`);
+  Node 16 works passing `fetch` (see [Node 16](#node-16)).
+- Typed 1:1 with the API (`sdk.verifactu.*`, `sdk.pdf.*`, snake_case payloads).
 - Automatic `Idempotency-Key`, timeouts, retries with backoff on 429/5xx.
 - Webhook signature verification.
 
@@ -102,6 +103,54 @@ For an endpoint the SDK does not wrap yet, `sdk.request(path, method?, body?, op
 calls it with the same auth, timeout, retries and error mapping
 (`path` is relative to `baseUrl`, e.g. `/verifactu/taxpayers`).
 
+## PDF invoices (`sdk.pdf`)
+
+`sdk.pdf.invoice(body)` (`POST /pdf/invoices`) renders an invoice issued by
+your ERP with ORUGA's template and the brand (logo, colour, fiscal data) of
+the issuer `issuer_nif` of your workspace. ORUGA stores nothing but, if the
+**`verifactu`** app is active and `issuer_nif` is one of its taxpayers, the
+same call registers the invoice (alta) and the PDF carries the QR.
+
+```typescript
+import { writeFile } from 'node:fs/promises'
+
+const { data, filename, verifactu } = await sdk.pdf.invoice({
+    issuer_nif: 'B12345678',
+    invoice_number: 'F-2026/0412',
+    issue_date: '2026-11-07',
+    external_id: '1532', // your id: comes back in the VERI*FACTU webhooks
+    recipient: { name: 'Cliente SL', nif: 'B87654321', address: 'C/ Mayor 1', cp: '39001', city: 'Santander' },
+    line_columns: [{ key: 'lot', label: 'Lote' }],
+    lines: [
+        { description: 'Albarán A-12 - 03/11/2026', is_title: true },
+        { description: 'Queso curado 1 kg', quantity: '2', unit_price: '50.00', amount: '100.00', extra: { lot: 'L-2611' } },
+    ],
+    tax_lines: [{ tax_rate: '4', base: '100.00', tax_amount: '4.00' }],
+    total: '104.00',
+    payment_method: 'Transferencia ES12 …',
+})
+
+await writeFile(filename ?? 'factura.pdf', Buffer.from(data))
+if (verifactu) save(verifactu.invoice_id, verifactu.status) // created: true on the first call
+```
+
+- The amounts must add up: Σ `lines[].amount` − `discount_amount` = Σ `tax_lines[].base`
+  and `total` = Σ (base + tax + surcharge). Otherwise 400 `PDF_INVOICE_INVALID`
+  with the list in `error.errors`.
+- `recipient` is required except in a simplified invoice (`invoice_type: 'F2'`);
+  corrective invoices (R1–R5) need `rectified_invoices`.
+- `preview: true`: draft with a «BORRADOR» watermark, no QR, nothing registered.
+  Use it before issuing.
+- Calling again with the same fiscal data reprints the same invoice and QR
+  (`verifactu.created === false`), so the call is retried like an idempotent
+  one. Different fiscal data ⇒ 409 `VERI\*FACTU_INVOICE_MISMATCH`
+  (`error.details.differences`); an annulled invoice ⇒ 409 `VERI\*FACTU_INVOICE_ANNULLED`.
+  Once registered, fix an invoice with a corrective one, not by editing it.
+- `issuer_contact` replaces the issuer's address, email and phone (a shop);
+  `issuer_legal_lines` adds legal texts under it (e.g. a sanitary register).
+- Needs the **`pdf`** app in the workspace and the `pdf_invoice.render` scope
+  on the API key.
+
 ## Webhooks
 
 Configure a workspace webhook once (or send `callback_url` per invoice):
@@ -191,6 +240,18 @@ new OrugaSDK({
     debug: true, // or (message, meta) => logger.debug(message, meta); never logs the API key
     fetch: customFetch, // optional
 })
+```
+
+### Node 16
+
+Node 16 has no global `fetch`: pass one (e.g. `undici` 5) and use `require`
+or `import` as usual.
+
+```javascript
+const { OrugaSDK } = require('@calltek/oruga-sdk')
+const { fetch } = require('undici')
+
+const sdk = new OrugaSDK({ apiKey: process.env.ORUGA_API_KEY, fetch })
 ```
 
 ### Retries and idempotency

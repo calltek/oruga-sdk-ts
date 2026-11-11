@@ -5,14 +5,14 @@ import dts from 'rollup-plugin-dts';
 const external = [/^node:/];
 
 export default [
-  // Bundle JS
+  // JS: ESM (dist/index.js) and CommonJS (dist/index.cjs, for require() and Node 16)
   {
     input: 'src/index.ts',
     external,
-    output: {
-      file: 'dist/index.js', // archivo final JS
-      format: 'esm',          // ESM para Node
-    },
+    output: [
+      { file: 'dist/index.js', format: 'esm' },
+      { file: 'dist/index.cjs', format: 'cjs', exports: 'named' },
+    ],
     plugins: [
       typescript({
         tsconfig: './tsconfig.json',
@@ -23,14 +23,14 @@ export default [
     ],
   },
 
-  // Bundle de tipos .d.ts
+  // Types: .d.ts for import, .d.cts for require
   {
     input: 'src/index.ts',
     external,
-    output: {
-      file: 'dist/index.d.ts',
-      format: 'es',
-    },
+    output: [
+      { file: 'dist/index.d.ts', format: 'es' },
+      { file: 'dist/index.d.cts', format: 'es' },
+    ],
     plugins: [dts()],
   },
 ];

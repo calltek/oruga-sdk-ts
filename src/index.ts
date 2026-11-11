@@ -25,6 +25,9 @@ export {
     VerifactuWebhook,
 } from './verifactu'
 
+// PDF
+export { PdfClient, PDF_VERIFACTU_HEADERS, readVerifactuHeaders } from './pdf'
+
 // HTTP
 export { parseRetryAfter } from './http'
 export type { HttpMethod } from './http'

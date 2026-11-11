@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0 — 2026-11-11
+
+### Added
+
+- `sdk.pdf.invoice(body)` (`POST /pdf/invoices`): PDF of an invoice issued by
+  your ERP, with ORUGA's template and the issuer's brand. With VERI\*FACTU
+  active for `issuer_nif`, the same call registers it and the PDF carries the
+  QR; `result.verifactu` has `{ invoice_id, status, created }` (from the
+  `X-Verifactu-*` headers). `preview: true` renders a draft without registering.
+  Types `RenderPdfInvoiceInput`, `PdfInvoiceResult`… and `readVerifactuHeaders()`.
+- CommonJS build (`dist/index.cjs` + `index.d.cts`): `require('@calltek/oruga-sdk')`
+  works. Node 16.14+ is supported passing `config.fetch` (e.g. `undici`).
+- `VerifactuInvoiceSource` includes `'pdf'` (invoices registered through `sdk.pdf`).
+
 ## 1.0.0 — 2026-10-22
 
 **First release of `@calltek/oruga-sdk`**, the official TypeScript SDK for the
